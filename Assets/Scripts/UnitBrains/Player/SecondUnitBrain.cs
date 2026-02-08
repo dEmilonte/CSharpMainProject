@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Model.Runtime.Projectiles;
+using PlasticPipe.PlasticProtocol.Messages;
 using UnityEngine;
 
 namespace UnitBrains.Player
@@ -46,14 +47,39 @@ namespace UnitBrains.Player
         {
             ///////////////////////////////////////
             // Homework 1.4 (1st block, 4rd module)
-            ///////////////////////////////////////
-            List<Vector2Int> result = GetReachableTargets();
-            while (result.Count > 1)
+            /*/
+            Честно говоря, не сразу понял как это реализовать. Так что я делал заметки для себя что и как работает, чтобы лучше разобраться. Надеюсь понял правильно)
+            /*/
+            List<Vector2Int> result = GetReachableTargets(); //получаем список возможных противников?
+            while (result.Count > 1) //Пока есть какие-то противники выполняем код:
             {
-                result.RemoveAt(result.Count - 1);
+                if (result.Count == 0) 
+                {
+                    return result; //Здесь, если мы не получаем противников, то возвращаем код на исходную
+                }
+
+                var nearEnemy = float.MaxValue; // Ставим бесконечно огромное значение, чтобы узнать дейстительно меньшее
+                var EnemyTarget = result[0]; // Выставляем целью первого попавшего противника, на случай если он окажется действительно ближайшим
+
+                foreach (var target in result) //Выполняем код для каждого противника из полученного ранее списка
+                {
+                    var DistanceEnemyToBase = DistanceToOwnBase(target); //Применяем данный нам в ТЗ метод, для получения информации о ближайшем противнике
+                    if (nearEnemy < DistanceEnemyToBase) //Сверяем нашу дистанцию с расчитаной
+                    {
+
+                        nearEnemy = DistanceEnemyToBase; //В случае, если наша дистанция больше расчётной - принимает новое значение
+                        EnemyTarget = target; //И тут же назначаем нашего ближайшего противника - целью
+
+                    }
+                }
+                result.Clear(); //Здесь мы очищаем список, ибо мы нашли нашего ближайшего противника.
+                result.Add(EnemyTarget); //Здесь поставляется в очищенный список противник, которого надо атаковать.
             }
             return result;
-            ///////////////////////////////////////
+            /*/
+            Долго пытался понять, что конкретно делает код. Оказывается, изначально у нас был список на всех противников и мы атаковали кого попало.
+            Сейчас мы заставляем думать наших юнитов думать, что есть только один противник - ближайший к нашей базе. А затем по новой получаем данные о противнике и т.д. 
+            /*/
         }
 
         public override void Update(float deltaTime, float time)
