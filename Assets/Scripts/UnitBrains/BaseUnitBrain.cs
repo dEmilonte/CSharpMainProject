@@ -18,6 +18,7 @@ namespace UnitBrains
         public virtual float SearchRadius => 3;
         
         protected Unit unit { get; private set; }
+        protected PriorityActions priorityActions { get; private set; }
         protected IReadOnlyRuntimeModel runtimeModel => ServiceLocator.Get<IReadOnlyRuntimeModel>();
         private BaseUnitPath _activePath = null;
         
@@ -37,7 +38,7 @@ namespace UnitBrains
             if (HasTargetsInRange())
                 return unit.Pos;
 
-            var target = PriorityActions.GetInstance().GetPriorityStep(IsPlayerUnitBrain ? RuntimeModel.PlayerId : RuntimeModel.BotPlayerId, unit);
+            var target = priorityActions.GetPriorityStep(unit);
 
             _activePath = new SmartUnitPath(runtimeModel, unit.Pos, target);
             return _activePath.GetNextStepFrom(unit.Pos);
@@ -60,6 +61,11 @@ namespace UnitBrains
             return result;
         }
 
+        public void SetPriorityActions(PriorityActions priorityActions)
+        {
+            this.priorityActions = priorityActions;
+        }
+
         public void SetUnit(Unit unit)
         {
             this.unit = unit;
@@ -76,7 +82,7 @@ namespace UnitBrains
 
         protected virtual List<Vector2Int> SelectTargets()
         {
-            var target = PriorityActions.GetInstance().GetPriorityTarget(IsPlayerUnitBrain ? RuntimeModel.PlayerId : RuntimeModel.BotPlayerId);
+            var target = priorityActions.GetPriorityTarget();
             List<Vector2Int > result = new List<Vector2Int>();
             if (GetUnitsInRadius(SearchRadius * unit.Config.AttackRange, true).Contains(target))
             {

@@ -11,8 +11,11 @@ public class PriorityActions
     private static PriorityActions instance;
     private IReadOnlyRuntimeModel _runtimeModel;
     private TimeUtil _timeUtil;
-    private List<RecommendedActions> _recomendations;
+    private RecommendedActions _recomendations;
     private int _middleMap;
+    private Vector2Int _enemyBase;
+    private Vector2Int _ownBase;
+    private IEnumerable<IReadOnlyUnit> _targets;
 
     private Vector2Int[] _directions = {
             Vector2Int.down,
@@ -21,47 +24,38 @@ public class PriorityActions
             Vector2Int.right
         };
 
-    private PriorityActions()
+    public PriorityActions(bool isPlayer, IReadOnlyRuntimeModel runtimeModel, TimeUtil timeUtil)
     {
-        _runtimeModel = ServiceLocator.Get<IReadOnlyRuntimeModel>();
-        _timeUtil = ServiceLocator.Get<TimeUtil>();
-        _recomendations = new List<RecommendedActions>
+        _runtimeModel = runtimeModel;
+        _timeUtil = timeUtil;
+        if (isPlayer)
         {
-            new RecommendedActions (),
-            new RecommendedActions ()
-        };
+            _ownBase = _runtimeModel.RoMap.Bases[RuntimeModel.PlayerId];
+            _enemyBase = _runtimeModel.RoMap.Bases[RuntimeModel.BotPlayerId];
+            _targets = _runtimeModel.RoBotUnits;
+        }
+        else
+        {
+            _ownBase = _runtimeModel.RoMap.Bases[RuntimeModel.BotPlayerId];
+            _enemyBase = _runtimeModel.RoMap.Bases[RuntimeModel.PlayerId];
+            _targets = _runtimeModel.RoPlayerUnits;
+        }
         CalcRecomendations();
         _timeUtil.AddFixedUpdateAction((deltaTime) => CalcRecomendations());
     }
 
-    public static PriorityActions GetInstance()
+    public IReadOnlyUnit GetPriorityTarget()
     {
-        if (instance == null)
-            instance = new PriorityActions();
-        return instance;
+        return _recomendations.Target;
     }
 
-    public IReadOnlyUnit GetPriorityTarget(int playerId)
+    public Vector2Int GetPriorityStep(Unit unit)
     {
-        if (_recomendations.Count <= playerId)
+        if (!_recomendations.UseRange)
         {
-            return null;
+            return _recomendations.Step;
         }
-        return _recomendations[playerId].Target;
-    }
-
-    public Vector2Int GetPriorityStep(int playerId, Unit unit)
-    {
-        if (_recomendations.Count <= playerId)
-        {
-            return unit.Pos;
-        }
-        var recomendation = _recomendations[playerId];
-        if (!recomendation.UseRange)
-        {
-            return recomendation.Step;
-        }
-        var step = recomendation.Step;
+        var step = _recomendations.Step;
         var attackRange = unit.Config.AttackRange;
 
         int range = Mathf.FloorToInt(attackRange);
@@ -88,13 +82,9 @@ public class PriorityActions
 
     private void CalcRecomendations()
     {
-        var playerTarget = CalcTarget(_runtimeModel.RoMap.Bases[RuntimeModel.PlayerId], _runtimeModel.RoBotUnits);
-        var playerStep = CalcStep(_runtimeModel.RoMap.Bases[RuntimeModel.PlayerId], _runtimeModel.RoBotUnits, _runtimeModel.RoMap.Bases[RuntimeModel.BotPlayerId]);
-        _recomendations[RuntimeModel.PlayerId] = new RecommendedActions(playerTarget, playerStep.Key, playerStep.Value);
-
-        var enemyTarget = CalcTarget(_runtimeModel.RoMap.Bases[RuntimeModel.BotPlayerId], _runtimeModel.RoPlayerUnits);
-        var enemyStep = CalcStep(_runtimeModel.RoMap.Bases[RuntimeModel.BotPlayerId], _runtimeModel.RoPlayerUnits, _runtimeModel.RoMap.Bases[RuntimeModel.PlayerId]);
-        _recomendations[RuntimeModel.BotPlayerId] = new RecommendedActions(enemyTarget, enemyStep.Key, enemyStep.Value);
+        var Target = CalcTarget(_ownBase, _targets);
+        var Step = CalcStep(_ownBase, _targets, _enemyBase);
+        _recomendations = new RecommendedActions(Target, Step.Key, Step.Value);
     }
 
     private KeyValuePair<Vector2Int, bool> CalcStep(Vector2Int defenseBase, IEnumerable<IReadOnlyUnit> units, Vector2Int attackBase)
